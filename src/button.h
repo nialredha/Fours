@@ -56,4 +56,3 @@ bool add_button(int x, int y, int mouse_x, int mouse_y, bool* selected, SDL_Rend
 
     return clicked_button;
 }
-
