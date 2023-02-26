@@ -1,5 +1,9 @@
+#ifndef AUDIO_H
+#define AUDIO_H
+
 #include <SDL.h>
 #include <math.h>
+#include <stdio.h>
 
 #define NUM_STEPS (16)
 #define NUM_PADS (48)
@@ -49,7 +53,7 @@ Mix16 audio_new_mix(int num_tracks)
     return mix;
 } 
 
-bool audio_fill_mix(Track16* track, Mix16* mix, int bpm, bool* sequence)
+bool audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence)
 {
     static int prev_bpm = 0;
     static int samples_per_beat = 0;
@@ -57,8 +61,8 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int bpm, bool* sequence)
     float seconds_per_beat = 0 ;
 
     // limit bpm 
-    if (bpm < MIN_BPM) { bpm = MIN_BPM; }
-    else if (bpm > MAX_BPM) { bpm = MAX_BPM; }
+    if (*bpm < MIN_BPM) { *bpm = MIN_BPM; }
+    else if (*bpm > MAX_BPM) { *bpm = MAX_BPM; }
 
     SDL_LockAudioDevice(mix->device_id);
     
@@ -68,19 +72,19 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int bpm, bool* sequence)
         return false;
     }
 
-    if (prev_bpm != bpm)
+    if (prev_bpm != *bpm)
     {
 
         if (mix->buffer != NULL) { free(mix->buffer); }
 
-        seconds_per_beat = 1 / (float)bpm * 60;
+        seconds_per_beat = 1 / (float)*bpm * 60;
         samples_per_beat = (int)ceil(seconds_per_beat * mix->spec.freq);
         mix->length = samples_per_beat * NUM_STEPS; 
         
         mix->buffer = (Uint16*)malloc(sizeof(Uint16) * mix->length);
         mix->playhead = 0;
 
-        prev_bpm = bpm;
+        prev_bpm = *bpm;
         track_number = 0;
     }
 
@@ -113,7 +117,7 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int bpm, bool* sequence)
 
 bool audio_open(Mix16* mix)
 {
-    mix->device_id = SDL_OpenAudioDevice(NULL, 0, &mix->spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
+    mix->device_id = SDL_OpenAudioDevice(NULL, 0, &mix->spec, NULL, 0);
     if (mix->device_id == 0)
     {
         fprintf(stderr, "SDL_OpenAudioDevice Error: %s\n", SDL_GetError());
@@ -133,7 +137,6 @@ bool audio_load_track(Track16* track, Mix16* mix)
         fprintf(stderr, "SDL_LoadWAV Error: %s\n", SDL_GetError());
         return false;
     }
-
     track->buffer = (Uint16*)buffer;
     track->length = (int)(length / BYTES_PER_SAMPLE);
 
@@ -148,3 +151,5 @@ void audio_play(bool play, Mix16* mix)
 
     else { SDL_PauseAudioDevice(mix->device_id, 1); }
 }
+
+#endif // AUDIO_H
