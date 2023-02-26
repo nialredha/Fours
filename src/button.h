@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 #include <math.h>
+#include <SDL.h>
 
-#include "SDL.h"
 #include "position.h"
 
 #define BUTTON_DEFAULT_WIDTH (24)
@@ -51,6 +51,14 @@ void button_update_center(Button* button)
             break;
     }
 }
+
+void button_update_pos(int x, int y, Button* button)
+{
+    button->x = x;
+    button->y = y;
+    button_update_center(button);
+}
+
 Button button_new_default(int x, int y, Position_Ref x_ref, Position_Ref y_ref)
 {
     Button button;

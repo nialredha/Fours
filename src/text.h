@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <SDL_ttf.h>
 
-#include "SDL_ttf.h"
 #include "position.h"
 
 typedef struct
@@ -34,6 +34,15 @@ Text text_new(int x, int y, Position_Ref x_ref, Position_Ref y_ref, char* val, c
     text.font.size = size;
 
     return text;
+}
+
+void text_update(int x, int y, Position_Ref x_ref, Position_Ref y_ref, char* value, Text* text)
+{
+    text->x = x;
+    text->y = y;
+    text->x_ref = x_ref;
+    text->y_ref = y_ref;
+    text->value = value;
 }
 
 bool add_text(Text* text, SDL_Renderer* rend)

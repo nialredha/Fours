@@ -9,9 +9,9 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-// #include "audio.h"
 
 #define BUFFER_SIZE (4)
+#define BYTES_PER_SAMPLE (2)
 #define	BITS_PER_BYTE (8)
 #define PCM (1)
 

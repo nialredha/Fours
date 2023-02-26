@@ -1,13 +1,14 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-#include <SDL.h>
-#include <math.h>
 #include <stdio.h>
+#include <math.h>
+#include <SDL.h>
+
+#include "wave.h"
 
 #define NUM_STEPS (16)
 #define NUM_PADS (48)
-#define BYTES_PER_SAMPLE (2)
 
 #define MIN_BPM (20)
 #define MAX_BPM (200)
@@ -118,6 +119,33 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence)
     track_number--;
 
     SDL_UnlockAudioDevice(mix->device_id);
+
+    return true;
+}
+
+bool audio_export_wave(char* path, int bars, Mix16* mix)
+{
+    uint16_t channels = (uint16_t)mix->spec.channels;
+    uint32_t freq = (uint32_t)mix->spec.freq;
+    uint32_t samples = (uint32_t)mix->length;
+    int16_t* final = (int16_t*)malloc(sizeof(int16_t) * samples * bars);
+
+    if (final == NULL) { return false; }
+
+    for (int i = 0; i < bars; i++)
+    {
+        for (uint32_t j = 0; j < samples; j++)
+        {
+            final[j+(i*samples)] = mix->buffer[j];
+        }
+    }
+    samples *= bars;
+
+    Wave wave = wave_new(path, channels, freq, samples, final);
+    if (!wave_write(&wave)) { return false; }
+
+    free(final);
+    wave.data_buffer = NULL;
 
     return true;
 }
