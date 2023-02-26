@@ -7,6 +7,7 @@
 #include "audio.h"
 #include "button.h"
 #include "text.h"
+#include "wave.h"
 
 #define SCREEN_WIDTH (720)
 #define SCREEN_HEIGHT (295)
@@ -18,7 +19,7 @@ Mix16 mix = {0};
 
 void audio_callback(void* userdata, Uint8* stream, int length)
 {
-    Uint16* stream16 = (Uint16*)stream;
+    int16_t* stream16 = (int16_t*)stream;
     int length16 = length / BYTES_PER_SAMPLE; 
     userdata = NULL; // not sure how to make use of this
     
@@ -70,11 +71,15 @@ int main(int argc, char** argv)
 {
     if (argc > 1)
     {
-        fprintf(stderr, "Inputted %s, but this program does not except any arguments\n", argv[1]);
+        fprintf(stderr, "WARNING: input '%s', but program doesn't except input arguments.\n", argv[1]);
     }
 
     // SDL Audio Visual Initialization
-    if (!init_av()) { exit(1); }
+    if (!init_av()) 
+    { 
+        fprintf(stderr, "ERROR in %s, line %d: failed to initialize.\n", __FILE__, __LINE__);
+        exit(1); 
+    }
 
     // Text Setup
     char* roboto = "../assets/Roboto-Regular.ttf";
@@ -95,12 +100,28 @@ int main(int argc, char** argv)
     hat = audio_new_track("../assets/hihat.wav");
     snare = audio_new_track("../assets/snare.wav");
 
-    if(!audio_load_track(&kick, &mix))  { exit(1); }; 
-    if(!audio_load_track(&hat, &mix))   { exit(1); }; 
-    if(!audio_load_track(&snare, &mix)) { exit(1); }; 
+    if(!audio_load_track(&kick, &mix))  
+    { 
+        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
+        exit(1); 
+    } 
+    if(!audio_load_track(&hat, &mix))   
+    { 
+        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
+        exit(1); 
+    } 
+    if(!audio_load_track(&snare, &mix)) 
+    { 
+        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
+        exit(1); 
+    } 
 
     mix.spec.callback = audio_callback;
-    if(!audio_open(&mix)) { exit(1); }; 
+    if(!audio_open(&mix)) 
+    { 
+        fprintf(stderr, "ERROR in %s, line %d: failed to open audio device.\n", __FILE__, __LINE__);
+        exit(1); 
+    }; 
 
     SDL_Event event;
     Position mouse;
@@ -195,16 +216,37 @@ int main(int argc, char** argv)
         }
 
         // Fill mix buffer with current pad sequence
-        if (!audio_fill_mix(&kick, &mix, &bpm, &pad_selected[0]))    { exit(1); }
-        if (!audio_fill_mix(&hat, &mix, &bpm, &pad_selected[16]))    { exit(1); }
-        if (!audio_fill_mix(&snare, &mix, &bpm, &pad_selected[32]))  { exit(1); }
+        if (!audio_fill_mix(&kick, &mix, &bpm, &pad_selected[0]))    
+        { 
+            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with kick.\n", __FILE__, __LINE__);
+            exit(1); 
+        }
+        if (!audio_fill_mix(&hat, &mix, &bpm, &pad_selected[16]))    
+        { 
+            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with hihat.\n", __FILE__, __LINE__);
+            exit(1); 
+        }
+        if (!audio_fill_mix(&snare, &mix, &bpm, &pad_selected[32]))  
+        { 
+            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with snare.\n", __FILE__, __LINE__);
+            exit(1); 
+        }
 
         // Save Button
         button.x = 610; button.y = 215;
         button_update_center(&button);
         if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
         {
-            // TODO: write data to wave 
+            char* path = "test.wav";
+            uint16_t channels = (uint16_t)mix.spec.channels;
+            uint32_t freq = (uint32_t)mix.spec.freq;
+            uint32_t samples = (uint32_t)mix.length;
+            Wave wave = wave_new(path, channels, freq, samples, mix.buffer);
+            if (!wave_write(&wave))
+            {
+                fprintf(stderr, "ERROR in %s, line %d: failed to save pattern.\n", __FILE__, __LINE__);
+            }
+            wave.data_buffer = NULL;
         }
         text.x = button.x - 5; text.y = button.center_y; 
         text.value = "Save";
@@ -220,7 +262,9 @@ int main(int argc, char** argv)
 
     SDL_CloseAudioDevice(mix.device_id);
     SDL_FreeWAV((Uint8*)kick.buffer);
-    SDL_FreeWAV((Uint8*)mix.buffer);
+    SDL_FreeWAV((Uint8*)hat.buffer);
+    SDL_FreeWAV((Uint8*)snare.buffer);
+    free(mix.buffer);
 
     TTF_Quit();
     SDL_Quit();

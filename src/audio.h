@@ -18,12 +18,12 @@ typedef struct
     char* path; 
     int  volume;
     int length;
-    Uint16* buffer;
+    int16_t* buffer;
 } Track16;
 
 typedef struct
 {
-    Uint16* buffer;
+    int16_t* buffer;
     int playhead;
     int length;
     int num_tracks;
@@ -77,11 +77,11 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence)
 
         if (mix->buffer != NULL) { free(mix->buffer); }
 
-        seconds_per_beat = 1 / (float)*bpm * 60;
+        seconds_per_beat = (1 / ((float)*bpm / 60)) / 4;
         samples_per_beat = (int)ceil(seconds_per_beat * mix->spec.freq);
         mix->length = samples_per_beat * NUM_STEPS; 
         
-        mix->buffer = (Uint16*)malloc(sizeof(Uint16) * mix->length);
+        mix->buffer = (int16_t*)malloc(sizeof(int16_t) * mix->length);
         mix->playhead = 0;
 
         prev_bpm = *bpm;
@@ -97,13 +97,20 @@ bool audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence)
         track_number = mix->num_tracks;
     }
 
+    int writehead = 0;
     for (int i = 0; i < NUM_STEPS; i++)
     {
-        for (int n = 0; n < samples_per_beat; n+=1)
+        for (int n = 0; n < track->length; n+=1)
         {
-            if (n < track->length && sequence[i])
+            writehead = n + (samples_per_beat*i);
+            if (writehead >= mix->length) 
+            { 
+                writehead = 0; 
+                break;  // preventing super long samples from wrapping 
+            }
+            if (sequence[i])
             {
-                mix->buffer[n+(samples_per_beat*i)] += track->buffer[n]; 
+                mix->buffer[writehead] += track->buffer[n]; 
             }
         }
     }
@@ -137,7 +144,7 @@ bool audio_load_track(Track16* track, Mix16* mix)
         fprintf(stderr, "SDL_LoadWAV Error: %s\n", SDL_GetError());
         return false;
     }
-    track->buffer = (Uint16*)buffer;
+    track->buffer = (int16_t*)buffer;
     track->length = (int)(length / BYTES_PER_SAMPLE);
 
     track->volume = MAX_VOLUME;
