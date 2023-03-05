@@ -14,6 +14,8 @@
 #define NUM_INSTRUMENTS (3)
 #define MAX_CHARS (20)
 
+char* instruments[NUM_INSTRUMENTS] = {"Kick", "HiHat", "Snare"};
+
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 Mix16 mix = {0};
@@ -37,7 +39,7 @@ void audio_callback(void* userdata, Uint8* stream, int length)
         { 
             mix.playhead = 0; 
         }
-        stream16[i] = mix.buffer[mix.playhead];
+        stream16[i] = (int16_t)mix.buffer[mix.playhead];
         mix.playhead += 1;
     }
 }
@@ -49,20 +51,17 @@ bool init_av()
         fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
         return false;
     }
-
     if (SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, 
                                     &window, &renderer) < 0)
     {
         fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
         return false;
     }
-
     if (TTF_Init() < 0)
     {
         fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
         return false;
     }
-
     SDL_ShowCursor(SDL_ENABLE);
 
     return true;
@@ -87,9 +86,11 @@ int main(int argc, char** argv)
     Text text = text_new(85, 45, LEFT, BOTTOM, "", roboto, 16);
 
     // Button Setup
-    Button button = button_new_default(0, 0, LEFT, TOP);
+    Button button = button_new_default(0, 0, LEFT, TOP, NULL);
+    Slider slider = slider_new_default(0, 0, LEFT, BOTTOM);
     bool play_selected = false;
     bool pad_selected[NUM_PADS] = {false};
+    bool slider_selected[NUM_INSTRUMENTS] = {false};
 
     // Audio Setup
     Track16 kick = {0};
@@ -147,6 +148,16 @@ int main(int argc, char** argv)
                 audio_play(play_selected, &mix);
             }
         }
+        else if (event.type == SDL_MOUSEBUTTONUP)
+        {
+            for (int i = 0; i < NUM_INSTRUMENTS; i++)
+            {
+                if (slider_selected[i])
+                {
+                    slider_selected[i] = false;
+                }
+            }
+        }
 
         // Clear screen to gray
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255); 
@@ -155,13 +166,13 @@ int main(int argc, char** argv)
         // Render Frame
 
         // Play Button
-        button_update_pos(85, 50, &button);
-        if (add_button(&button, &play_selected, mouse.x, mouse.y, renderer, &event))
+        button.rect.x = 93; button.rect.y = 50; button.selected = &play_selected;
+        if (add_button(&button, &mouse, renderer, &event))
         {
             if (play_selected) { mix.playhead = 0; }
             audio_play(play_selected, &mix);
         }
-        text_update(85, 45, LEFT, BOTTOM, "Play", &text);
+        text.x = 93; text.y = 45; text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "Play";
         add_text(&text, renderer);
 
         // BPM Variables
@@ -169,29 +180,34 @@ int main(int argc, char** argv)
         static char bpm_str[MAX_CHARS];
 
         // BPM Decrement Button
-        button_update_pos(153, 50, &button);
-        if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
+        button.rect.x += 68; button.selected = NULL;
+        if (add_button(&button, &mouse, renderer, &event))
         {
             bpm--;
         }
-        text_update(button.center_x, button.center_y, CENTER, CENTER, "-", &text);
+        text.x = button.rect.cx; text.y = button.rect.cy; 
+        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "-";
+        add_text(&text, renderer);
+
+        // BPM Display Name
+        text.x = button.rect.x; text.y = button.rect.y-5; 
+        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "BPM";
         add_text(&text, renderer);
 
         // BPM Increment Button
-        button_update_pos(187, 50, &button);
-        if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
+        button.rect.x += 34; 
+        if (add_button(&button, &mouse, renderer, &event))
         {
             bpm++;
         }
-        text_update(button.center_x, button.center_y, CENTER, CENTER, "+", &text);
+        text.x = button.rect.cx; text.y = button.rect.cy; 
+        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "+";
         add_text(&text, renderer);
 
         // BPM Display Value
-        text_update(153, 45, LEFT, BOTTOM, "BPM", &text);
-        add_text(&text, renderer);
-
         snprintf(bpm_str, MAX_CHARS, "%d", bpm);
-        text_update(192, 45, LEFT, BOTTOM, bpm_str, &text);
+        text.x = button.rect.x+5; text.y = button.rect.y-5; 
+        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = bpm_str;
         add_text(&text, renderer);
 
         // Bars Variables
@@ -199,74 +215,98 @@ int main(int argc, char** argv)
         static char bars_str[MAX_CHARS];
 
         // Bars Decrement Button
-        button_update_pos(255, 50, &button);
-        if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
+        button.rect.x += 68; 
+        if (add_button(&button, &mouse, renderer, &event))
         {
             if (bars > 0) { bars--; }
         }
-        text_update(button.center_x, button.center_y, CENTER, CENTER, "-", &text);
+        text.x = button.rect.cx; text.y = button.rect.cy; 
+        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "-";
+        add_text(&text, renderer);
+
+        // Bars Display Name
+        text.x = button.rect.x; text.y = button.rect.y-5; 
+        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "Bars";
         add_text(&text, renderer);
 
         // Bars Increment Button
-        button_update_pos(289, 50, &button);
-        if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
+        button.rect.x += 34; 
+        if (add_button(&button, &mouse, renderer, &event))
         {
             if (bars < 16) { bars++; }
         }
-        text_update(button.center_x, button.center_y, CENTER, CENTER, "+", &text);
+        text.x = button.rect.cx; text.y = button.rect.cy; 
+        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "+";
         add_text(&text, renderer);
 
         // Bars Display Value
-        text_update(255, 45, LEFT, BOTTOM, "Bars", &text);
-        add_text(&text, renderer);
-
         snprintf(bars_str, MAX_CHARS, "%d", bars);
-        text_update(294, 45, LEFT, BOTTOM, bars_str, &text);
+        text.x = button.rect.x+5; text.y = button.rect.y-5; 
+        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = bars_str;
         add_text(&text, renderer);
 
         // Instrument Pads
+        static float track_volume[NUM_INSTRUMENTS] = {MAX_VOLUME, MAX_VOLUME, MAX_VOLUME};
+
         int id = 0;
-        button_update_pos(85, 100, &button);
-        char* instruments[3] = {"Kick", "HiHat", "Snare"};
+        text.ref.x = RIGHT; text.ref.y = CENTER;
+        button.rect.x = 93; button.rect.y = 100;
+        slider.rect.x = 637; slider.rect.y = 192;
         for (int i = 0; i < NUM_INSTRUMENTS; i++)
         {
             for (int j = 0; j < NUM_STEPS; j++)
             {
                 id = (NUM_STEPS*i) + j;
-                button_update_center(&button);
-                add_button(&button, &pad_selected[id], mouse.x, mouse.y, renderer, &event);
-                button.x += button.width + 10;
+                button.selected = &pad_selected[id];
+                add_button(&button, &mouse, renderer, &event);
+                button.rect.x += button.rect.w + 10;
             }
 
-            button.x = 85;
-            text_update(button.x - 5, button.center_y, RIGHT, CENTER, instruments[i], &text);
+
+            slider.rect.x += slider.rect.w + 2;
+            slider.button.rect.x = slider.rect.x; 
+            slider.fill_height = (int)(track_volume[i] / MAX_VOLUME * slider.rect.h);
+            slider.button.rect.y = slider.rect.y - slider.fill_height; 
+            if (add_slider(&slider, &mouse, renderer, &event))
+            {
+                slider_selected[i] = true;
+            }
+            if (slider_selected[i])
+            {
+                if (mouse.y < slider.rect.y && mouse.y > slider.rect.y - slider.rect.h)
+                {
+                    float new_height = (float)(slider.rect.y - mouse.y);
+                    float percent_full = new_height / (float)slider.rect.h;
+                    track_volume[i] = percent_full * MAX_VOLUME;
+                }
+                else if (mouse.y < slider.rect.y - slider.rect.h)
+                {
+                    track_volume[i] = MAX_VOLUME;
+                }
+                else if (mouse.y > slider.rect.y)
+                {
+                    track_volume[i] = 0.0;
+                }
+            }
+
+            button.rect.x = 93;
+            text.x = button.rect.x - 5; text.y = button.rect.cy; text.value = instruments[i];
             add_text(&text, renderer);
-            button.y += button.height + 10;
+            button.rect.y += button.rect.h + 10;
         }
 
         // Fill mix buffer with current pad sequence
-        if (!audio_fill_mix(&kick, &mix, &bpm, &pad_selected[0]))    
-        { 
-            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with kick.\n", __FILE__, __LINE__);
-            exit(1); 
-        }
-        if (!audio_fill_mix(&hat, &mix, &bpm, &pad_selected[16]))    
-        { 
-            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with hihat.\n", __FILE__, __LINE__);
-            exit(1); 
-        }
-        if (!audio_fill_mix(&snare, &mix, &bpm, &pad_selected[32]))  
-        { 
-            fprintf(stderr, "ERROR in %s, line %d: failed to fill mix with snare.\n", __FILE__, __LINE__);
-            exit(1); 
-        }
+        audio_fill_mix(&kick, &mix, &bpm, &pad_selected[0], track_volume[0]);
+        audio_fill_mix(&hat, &mix, &bpm, &pad_selected[16], track_volume[1]);
+        audio_fill_mix(&snare, &mix, &bpm, &pad_selected[32], track_volume[2]);
 
         // Save Button
         static int track_num = 1;
         char file_name[MAX_CHARS];
         snprintf(file_name, MAX_CHARS, "%s%d%s", "track-", track_num, ".wav");
-        button_update_pos(595, 215, &button);
-        if (add_button(&button, NULL, mouse.x, mouse.y, renderer, &event))
+
+        button.rect.x = 603; button.rect.y = 215; button.selected = NULL;
+        if (add_button(&button, &mouse, renderer, &event))
         {
             if (!audio_export_wave(file_name, bars, &mix))
             {
@@ -274,7 +314,7 @@ int main(int argc, char** argv)
             }
             else { track_num++; }
         }
-        text_update(button.x - 5, button.center_y, RIGHT, CENTER, "Save", &text);
+        text.x = button.rect.x - 5; text.y = button.rect.cy; text.value = "Save";
         add_text(&text, renderer);
             
         // Present Frame

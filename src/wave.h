@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
 
 #define BUFFER_SIZE (4)
 #define BYTES_PER_SAMPLE (2)
@@ -65,6 +66,8 @@ Wave wave_new(char* path, uint16_t num_channels, uint32_t sample_rate, uint32_t 
 
 void fill_buffer_32(uint8_t* buffer, uint32_t value)
 {
+    assert(buffer != NULL);
+
 	buffer[0] = (uint8_t)(value >> 0);
 	buffer[1] = (uint8_t)(value >> 8);
 	buffer[2] = (uint8_t)(value >> 16);
@@ -73,6 +76,8 @@ void fill_buffer_32(uint8_t* buffer, uint32_t value)
 
 void fill_buffer_16(uint8_t* buffer, uint16_t first_value, uint16_t second_value)
 {
+    assert(buffer != NULL);
+
 	buffer[0] = (uint8_t)(first_value >> 0);
 	buffer[1] = first_value >> 8;
 	buffer[2] = (uint8_t)(second_value >> 0);
@@ -81,6 +86,9 @@ void fill_buffer_16(uint8_t* buffer, uint16_t first_value, uint16_t second_value
 
 void fill_buffer_str(uint8_t* buffer, char* name)
 {
+    assert(buffer != NULL);
+    assert(name != NULL);
+
 	buffer[0] = name[0];
 	buffer[1] = name[1];
 	buffer[2] = name[2];
@@ -90,6 +98,8 @@ void fill_buffer_str(uint8_t* buffer, char* name)
 // WARNING: Parsing is over-simplified. There are not many wave files this big guy can handle.
 bool wave_load(Wave* wave)
 {
+    assert(wave != NULL);
+
 	uint8_t buffer[BUFFER_SIZE];
 
     wave->fp = fopen(wave->path, "rb");
@@ -208,6 +218,8 @@ bool wave_load(Wave* wave)
 // Write a 16-bit PCM (uncompressed) WAVE file
 bool wave_write(Wave* wave)
 {
+    assert(wave != NULL);
+
 	uint8_t buffer[BUFFER_SIZE];
 	char* name;
 

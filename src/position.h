@@ -1,7 +1,7 @@
 #ifndef POSITION_H
 #define POSITION_H
 
-typedef struct Position
+typedef struct 
 {
     int x, y; 
 } Position;
@@ -10,9 +10,16 @@ typedef enum
 {
     TOP, 
     BOTTOM, 
-    LEFT, 
+    LEFT,
     RIGHT, 
     CENTER,
-} Position_Ref;
+} Reference;
+
+typedef struct
+{
+    Reference x;
+    Reference y;
+} Reference_Point;
+
 
 #endif // POSITION_H

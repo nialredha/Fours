@@ -2,6 +2,7 @@
 #define TEXT_H
 
 #include <stdbool.h>
+#include <assert.h>
 #include <stdio.h>
 #include <SDL_ttf.h>
 
@@ -16,19 +17,19 @@ typedef struct
 typedef struct
 {
     int x, y;
-    Position_Ref x_ref, y_ref;
+    Reference_Point ref;
     char* value;
     Font font;
 } Text;
 
-Text text_new(int x, int y, Position_Ref x_ref, Position_Ref y_ref, char* val, char* file, int size)
+Text text_new(int x, int y, Reference ref_x, Reference ref_y, char* val, char* file, int size)
 {
     Text text; 
 
     text.x = x;
     text.y = y;
-    text.x_ref = x_ref;
-    text.y_ref = y_ref;
+    text.ref.x = ref_x;
+    text.ref.y = ref_y;
     text.value = val;
     text.font.path = file;
     text.font.size = size;
@@ -36,17 +37,11 @@ Text text_new(int x, int y, Position_Ref x_ref, Position_Ref y_ref, char* val, c
     return text;
 }
 
-void text_update(int x, int y, Position_Ref x_ref, Position_Ref y_ref, char* value, Text* text)
-{
-    text->x = x;
-    text->y = y;
-    text->x_ref = x_ref;
-    text->y_ref = y_ref;
-    text->value = value;
-}
-
 bool add_text(Text* text, SDL_Renderer* rend)
 {
+    assert(text != NULL);
+    assert(rend != NULL);
+
     TTF_Font* font = TTF_OpenFont(text->font.path, text->font.size);
     if (!font)
     {
@@ -63,16 +58,12 @@ bool add_text(Text* text, SDL_Renderer* rend)
         rect.w = surface->w;
         rect.h = surface->h;
     }
-    else 
-    {
-        rect.w = 0;
-        rect.h = 0;
-    }
 
-    if (text->x_ref == CENTER) { rect.x -= (int)(rect.w / 2); }
-    else if (text->x_ref == RIGHT) { rect.x -= rect.w; }
-    if (text->y_ref == CENTER) { rect.y -= (int)(rect.h / 2); }
-    else if (text->y_ref == BOTTOM) { rect.y -= rect.h; }
+    if (text->ref.x == CENTER) { rect.x -= (int)(rect.w / 2); }
+    else if (text->ref.x == RIGHT) { rect.x -= rect.w; }
+
+    if (text->ref.y == CENTER) { rect.y -= (int)(rect.h / 2); }
+    else if (text->ref.y == BOTTOM) { rect.y -= rect.h; }
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(rend, surface);
     SDL_FreeSurface(surface);
