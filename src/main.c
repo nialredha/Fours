@@ -3,21 +3,21 @@
 
 #include <SDL.h>
 
-#include "position.h"
-#include "audio.h"
-#include "button.h"
-#include "text.h"
-#include "wave.h"
+#include <audio.h>
+#include <ui_tools.h>
+#include <wave.h>
 
 #define SCREEN_WIDTH (720)
 #define SCREEN_HEIGHT (295)
-#define NUM_INSTRUMENTS (3)
+#define NUM_TRACKS (3)
 #define MAX_CHARS (20)
 
-char* instruments[NUM_INSTRUMENTS] = {"Kick", "HiHat", "Snare"};
+char* track_names[NUM_TRACKS] = {"Kick", "HiHat", "Snare"};
+char* track_paths[NUM_TRACKS] = {"../assets/kick.wav", "../assets/hihat.wav", "../assets/snare.wav"};
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
+TTF_Font* font = NULL;
 Mix16 mix = {0};
 
 void audio_callback(void* userdata, Uint8* stream, int length)
@@ -62,6 +62,14 @@ bool init_av()
         fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
         return false;
     }
+
+    font = TTF_OpenFont("../assets/Roboto-Regular.ttf", 16);
+	if (!font)
+	{
+        fprintf(stderr, "TTF_OpenFont Error: %s\n", TTF_GetError());
+		return false;
+	}
+
     SDL_ShowCursor(SDL_ENABLE);
 
     return true;
@@ -81,49 +89,33 @@ int main(int argc, char** argv)
         exit(1); 
     }
 
-    // Text Setup
-    char* roboto = "../assets/Roboto-Regular.ttf";
-    Text text = text_new(85, 45, LEFT, BOTTOM, "", roboto, 16);
-
     // Button Setup
-    Button button = button_new_default(0, 0, LEFT, TOP, NULL);
-    Slider slider = slider_new_default(0, 0, LEFT, BOTTOM);
+    Button button = button_new_default(0, 0, NULL);
+    Slider slider = slider_new_default(0, 0);
     bool play_selected = false;
     bool pad_selected[NUM_PADS] = {false};
-    bool slider_selected[NUM_INSTRUMENTS] = {false};
+    bool slider_selected[NUM_TRACKS] = {false};
 
     // Audio Setup
-    Track16 kick = {0};
-    Track16 hat = {0};
-    Track16 snare = {0};
-
-    mix = audio_new_mix(NUM_INSTRUMENTS);
-    kick = audio_new_track("../assets/kick.wav");
-    hat = audio_new_track("../assets/hihat.wav");
-    snare = audio_new_track("../assets/snare.wav");
-
-    if(!audio_load_track(&kick, &mix))  
-    { 
-        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
-        exit(1); 
-    } 
-    if(!audio_load_track(&hat, &mix))   
-    { 
-        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
-        exit(1); 
-    } 
-    if(!audio_load_track(&snare, &mix)) 
-    { 
-        fprintf(stderr, "ERROR in %s, line %d: failed to load kick.\n", __FILE__, __LINE__);
-        exit(1); 
-    } 
+    mix = audio_new_mix(NUM_TRACKS);
+	Track16 tracks[NUM_TRACKS] = {0};;
+	for (int i = 0; i < NUM_TRACKS; i++)
+	{
+		Track16 track = audio_new_track(track_paths[i]);
+		if (!audio_load_track(&track, &mix))
+		{
+			fprintf(stderr, "ERROR in %s, line %d: failed to load %s.\n", __FILE__, __LINE__, track_paths[i]);
+        	exit(1); 
+		}
+		tracks[i] = track;
+	}
 
     mix.spec.callback = audio_callback;
     if(!audio_open(&mix)) 
     { 
         fprintf(stderr, "ERROR in %s, line %d: failed to open audio device.\n", __FILE__, __LINE__);
         exit(1); 
-    }; 
+    } 
 
     SDL_Event event;
     Position mouse;
@@ -150,7 +142,7 @@ int main(int argc, char** argv)
         }
         else if (event.type == SDL_MOUSEBUTTONUP)
         {
-            for (int i = 0; i < NUM_INSTRUMENTS; i++)
+            for (int i = 0; i < NUM_TRACKS; i++)
             {
                 if (slider_selected[i])
                 {
@@ -172,8 +164,7 @@ int main(int argc, char** argv)
             if (play_selected) { mix.playhead = 0; }
             audio_play(play_selected, &mix);
         }
-        text.x = 93; text.y = 45; text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "Play";
-        add_text(&text, renderer);
+		add_text("Play", button.center.x, 40, font, renderer);
 
         // BPM Variables
         static int bpm = 60;
@@ -185,14 +176,10 @@ int main(int argc, char** argv)
         {
             bpm--;
         }
-        text.x = button.rect.cx; text.y = button.rect.cy; 
-        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "-";
-        add_text(&text, renderer);
+        add_text("-", button.center.x, button.center.y, font, renderer);
 
         // BPM Display Name
-        text.x = button.rect.x; text.y = button.rect.y-5; 
-        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "BPM";
-        add_text(&text, renderer);
+        add_text("BPM", button.center.x, 40, font, renderer);
 
         // BPM Increment Button
         button.rect.x += 34; 
@@ -200,15 +187,11 @@ int main(int argc, char** argv)
         {
             bpm++;
         }
-        text.x = button.rect.cx; text.y = button.rect.cy; 
-        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "+";
-        add_text(&text, renderer);
+        add_text("+", button.center.x, button.center.y, font, renderer);
 
         // BPM Display Value
         snprintf(bpm_str, MAX_CHARS, "%d", bpm);
-        text.x = button.rect.x+5; text.y = button.rect.y-5; 
-        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = bpm_str;
-        add_text(&text, renderer);
+        add_text(bpm_str, button.center.x, 40, font, renderer);
 
         // Bars Variables
         static int bars = 0;
@@ -220,14 +203,10 @@ int main(int argc, char** argv)
         {
             if (bars > 0) { bars--; }
         }
-        text.x = button.rect.cx; text.y = button.rect.cy; 
-        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "-";
-        add_text(&text, renderer);
+        add_text("-", button.center.x, button.center.y, font, renderer);
 
         // Bars Display Name
-        text.x = button.rect.x; text.y = button.rect.y-5; 
-        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = "Bars";
-        add_text(&text, renderer);
+        add_text("Bars", button.center.x, 40, font, renderer);
 
         // Bars Increment Button
         button.rect.x += 34; 
@@ -235,87 +214,86 @@ int main(int argc, char** argv)
         {
             if (bars < 16) { bars++; }
         }
-        text.x = button.rect.cx; text.y = button.rect.cy; 
-        text.ref.x = CENTER; text.ref.y = CENTER; text.value = "+";
-        add_text(&text, renderer);
+        add_text("+", button.center.x, button.center.y, font, renderer);
 
         // Bars Display Value
         snprintf(bars_str, MAX_CHARS, "%d", bars);
-        text.x = button.rect.x+5; text.y = button.rect.y-5; 
-        text.ref.x = LEFT; text.ref.y = BOTTOM; text.value = bars_str;
-        add_text(&text, renderer);
+        add_text(bars_str, button.center.x, 40, font, renderer);
 
         // Instrument Pads
-        static float track_volume[NUM_INSTRUMENTS] = {MAX_VOLUME, MAX_VOLUME, MAX_VOLUME};
+        static float track_volume[NUM_TRACKS] = {MAX_VOLUME, MAX_VOLUME, MAX_VOLUME};
 
-        int id = 0;
-        text.ref.x = RIGHT; text.ref.y = CENTER;
+
+		// TODO: make this faster/better?
+
+		// add pads one row at a time
         button.rect.x = 93; button.rect.y = 100;
-        slider.rect.x = 637; slider.rect.y = 192;
-        for (int i = 0; i < NUM_INSTRUMENTS; i++)
+		int track_count = 0;
+		for (int i = 0; i < NUM_TRACKS*NUM_STEPS; i++)
+		{
+			button.selected = &pad_selected[i];
+			add_button(&button, &mouse, renderer, &event);
+			button.rect.x += button.rect.w + 10;
+
+			// add track titles and move to next track
+			if ((i+1) % NUM_STEPS == 0)
+			{
+				button.rect.x = 93;
+				add_text(track_names[track_count], 63, button.center.y, font, renderer);
+				button.rect.y += button.rect.h + 10;
+				track_count++;
+			}
+		}
+
+		// add slider for each track
+        slider.rect.x = 637; slider.rect.y = 100;
+        for (int i = 0; i < NUM_TRACKS; i++)
         {
-            for (int j = 0; j < NUM_STEPS; j++)
-            {
-                id = (NUM_STEPS*i) + j;
-                button.selected = &pad_selected[id];
-                add_button(&button, &mouse, renderer, &event);
-                button.rect.x += button.rect.w + 10;
-            }
-
-
             slider.rect.x += slider.rect.w + 2;
-            slider.button.rect.x = slider.rect.x; 
-            slider.fill_height = (int)(track_volume[i] / MAX_VOLUME * slider.rect.h);
-            slider.button.rect.y = slider.rect.y - slider.fill_height; 
-            if (add_slider(&slider, &mouse, renderer, &event))
-            {
-                slider_selected[i] = true;
-            }
+            slider.fill.h = (int)(track_volume[i] / MAX_VOLUME * slider.rect.h);
+			slider.button.selected = &slider_selected[i];
+            add_slider(&slider, &mouse, renderer, &event);
+
             if (slider_selected[i])
             {
-                if (mouse.y < slider.rect.y && mouse.y > slider.rect.y - slider.rect.h)
+                if (mouse.y > slider.rect.y && mouse.y < slider.rect.y + slider.rect.h)
                 {
-                    float new_height = (float)(slider.rect.y - mouse.y);
+                    float new_height = (float)((slider.rect.y + slider.rect.h) - mouse.y);
                     float percent_full = new_height / (float)slider.rect.h;
                     track_volume[i] = percent_full * MAX_VOLUME;
                 }
-                else if (mouse.y < slider.rect.y - slider.rect.h)
-                {
-                    track_volume[i] = MAX_VOLUME;
-                }
-                else if (mouse.y > slider.rect.y)
+                else if (mouse.y > slider.rect.y + slider.rect.h)
                 {
                     track_volume[i] = 0.0;
                 }
+                else if (mouse.y < slider.rect.y)
+                {
+                    track_volume[i] = MAX_VOLUME;
+                }
             }
-
-            button.rect.x = 93;
-            text.x = button.rect.x - 5; text.y = button.rect.cy; text.value = instruments[i];
-            add_text(&text, renderer);
-            button.rect.y += button.rect.h + 10;
         }
 
-        // Fill mix buffer with current pad sequence
-        audio_fill_mix(&kick, &mix, &bpm, &pad_selected[0], track_volume[0]);
-        audio_fill_mix(&hat, &mix, &bpm, &pad_selected[16], track_volume[1]);
-        audio_fill_mix(&snare, &mix, &bpm, &pad_selected[32], track_volume[2]);
+		// Fill mix buffer with current pad sequence
+		for (int i = 0; i < NUM_TRACKS; i++)
+		{
+			audio_fill_mix(&tracks[i], &mix, &bpm, &pad_selected[NUM_STEPS*i], track_volume[i]);
+		}
 
         // Save Button
-        static int track_num = 1;
-        char file_name[MAX_CHARS];
-        snprintf(file_name, MAX_CHARS, "%s%d%s", "track-", track_num, ".wav");
-
         button.rect.x = 603; button.rect.y = 215; button.selected = NULL;
         if (add_button(&button, &mouse, renderer, &event))
         {
+			static int track_num = 1;
+        	char file_name[MAX_CHARS];
+        	snprintf(file_name, MAX_CHARS, "%s%d%s", "track-", track_num, ".wav");
+
             if (!audio_export_wave(file_name, bars, &mix))
             {
                 fprintf(stderr, "ERROR in %s, line %d: failed to export pattern.\n", __FILE__, __LINE__);
             }
             else { track_num++; }
         }
-        text.x = button.rect.x - 5; text.y = button.rect.cy; text.value = "Save";
-        add_text(&text, renderer);
+        add_text("Save", 573, button.center.y, font, renderer);
             
         // Present Frame
         SDL_RenderPresent(renderer);
@@ -324,12 +302,12 @@ int main(int argc, char** argv)
     // Clean Up
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-
     SDL_CloseAudioDevice(mix.device_id);
-    SDL_FreeWAV((Uint8*)kick.buffer);
-    SDL_FreeWAV((Uint8*)hat.buffer);
-    SDL_FreeWAV((Uint8*)snare.buffer);
+
+	for (int i = 0; i < NUM_TRACKS; i++) { SDL_FreeWAV((Uint8*)tracks[i].buffer); }
     free(mix.buffer);
+
+    TTF_CloseFont(font);
 
     TTF_Quit();
     SDL_Quit();

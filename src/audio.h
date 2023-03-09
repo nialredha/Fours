@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <assert.h>
-#include <math.h>
 #include <SDL.h>
 
 #include "wave.h"
@@ -54,6 +53,38 @@ Mix16 audio_new_mix(int num_tracks)
 
     return mix;
 } 
+
+bool audio_open(Mix16* mix)
+{
+    assert(mix != NULL);
+    mix->device_id = SDL_OpenAudioDevice(NULL, 0, &mix->spec, NULL, 0);
+    if (mix->device_id == 0)
+    {
+        fprintf(stderr, "SDL_OpenAudioDevice Error: %s\n", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+bool audio_load_track(Track16* track, Mix16* mix)
+{
+    assert(mix != NULL);
+    if (track->buffer != NULL) { free(track->buffer); }
+
+    Uint8* buffer = NULL;
+    Uint32 length = 0;
+    if (SDL_LoadWAV(track->path, &mix->spec, &buffer, &length) == NULL)
+    {
+        fprintf(stderr, "SDL_LoadWAV Error: %s\n", SDL_GetError());
+        return false;
+    }
+    track->buffer = (int16_t*)buffer;
+    track->length = (int)(length / BYTES_PER_SAMPLE);
+
+    track->volume = MAX_VOLUME;
+
+    return true;
+}
 
 void audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence, float volume)
 {
@@ -123,6 +154,15 @@ void audio_fill_mix(Track16* track, Mix16* mix, int* bpm, bool* sequence, float 
     SDL_UnlockAudioDevice(mix->device_id);
 }
 
+void audio_play(bool play, Mix16* mix)
+{
+    assert(mix != NULL);
+
+    if (play) { SDL_PauseAudioDevice(mix->device_id, 0); }
+
+    else { SDL_PauseAudioDevice(mix->device_id, 1); }
+}
+
 bool audio_export_wave(char* path, int bars, Mix16* mix)
 {
     assert(path != NULL);
@@ -132,6 +172,7 @@ bool audio_export_wave(char* path, int bars, Mix16* mix)
     uint32_t freq = (uint32_t)mix->spec.freq;
     uint32_t samples = (uint32_t)mix->length;
 
+	// TODO: get rid of this malloc
     int16_t* final = (int16_t*)malloc(sizeof(int16_t) * samples * bars);
     if (final == NULL) { return false; }
 
@@ -151,47 +192,6 @@ bool audio_export_wave(char* path, int bars, Mix16* mix)
     wave.data_buffer = NULL;
 
     return true;
-}
-
-bool audio_open(Mix16* mix)
-{
-    assert(mix != NULL);
-    mix->device_id = SDL_OpenAudioDevice(NULL, 0, &mix->spec, NULL, 0);
-    if (mix->device_id == 0)
-    {
-        fprintf(stderr, "SDL_OpenAudioDevice Error: %s\n", SDL_GetError());
-        return false;
-    }
-    return true;
-}
-
-bool audio_load_track(Track16* track, Mix16* mix)
-{
-    assert(mix != NULL);
-    if (track->buffer != NULL) { free(track->buffer); }
-
-    Uint8* buffer = NULL;
-    Uint32 length = 0;
-    if (SDL_LoadWAV(track->path, &mix->spec, &buffer, &length) == NULL)
-    {
-        fprintf(stderr, "SDL_LoadWAV Error: %s\n", SDL_GetError());
-        return false;
-    }
-    track->buffer = (int16_t*)buffer;
-    track->length = (int)(length / BYTES_PER_SAMPLE);
-
-    track->volume = MAX_VOLUME;
-
-    return true;
-}
-
-void audio_play(bool play, Mix16* mix)
-{
-    assert(mix != NULL);
-
-    if (play) { SDL_PauseAudioDevice(mix->device_id, 0); }
-
-    else { SDL_PauseAudioDevice(mix->device_id, 1); }
 }
 
 #endif // AUDIO_H
