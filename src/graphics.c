@@ -1,41 +1,71 @@
-#ifndef UI_TOOLS_H
-#define UI_TOOLS_H
-
-#include <stdio.h>
-#include <stdbool.h>
-#include <assert.h>
-
-#include <SDL.h>
-#include <SDL_ttf.h>
-
-#define BUTTON_DEFAULT_WIDTH (24)
-#define BUTTON_DEFAULT_HEIGHT (24)
-
-#define SLIDER_DEFAULT_WIDTH (9)
-#define SLIDER_DEFAULT_HEIGHT (92)
+#include <graphics.h>
 
 const SDL_Color UI_DEFAULT_OUTLINE_COLOR = {255, 255, 255, 255};
 const SDL_Color UI_DEFAULT_HOVER_COLOR = {74, 74, 56, 255};
 const SDL_Color UI_DEFAULT_SELECTED_COLOR = {150, 150, 150, 255};
 const SDL_Color UI_DEFAULT_BACKGROUND_COLOR = {37, 37, 38, 255};
 
-typedef struct 
-{
-    int x, y; 
-} Position;
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+TTF_Font* font = NULL;
 
-// Intended as private methods. Use with caution.
+// Private methods 
 void _update_center(Position* center, SDL_Rect* rect);
 bool _over_button(SDL_Rect* rect, Position* mouse);
 
-// BUTTON DATA/METHODS *******************************************************
-
-typedef struct 
+bool graphics_init()
 {
-    SDL_Rect rect;
-	Position center;
-    bool* selected;
-} Button;
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+        return false;
+    }
+    if (SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, 
+                                    &window, &renderer) < 0)
+    {
+        fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
+        return false;
+    }
+    if (TTF_Init() < 0)
+    {
+        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
+        return false;
+    }
+
+    font = TTF_OpenFont("../assets/Roboto-Regular.ttf", 16);
+	if (!font)
+	{
+        fprintf(stderr, "TTF_OpenFont Error: %s\n", TTF_GetError());
+		return false;
+	}
+
+    SDL_ShowCursor(SDL_ENABLE);
+
+    return true;
+}
+
+void graphics_clear_screen(SDL_Color color)
+{
+	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+	SDL_RenderClear(renderer);
+}
+
+void graphics_display()
+{
+	SDL_RenderPresent(renderer);
+}
+
+void graphics_close()
+{
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    TTF_CloseFont(font);
+    TTF_Quit();
+}
+
+// BUTTON DATA/METHODS *******************************************************
 
 Button button_new_default(int x, int y, bool* selected)
 {
@@ -54,11 +84,10 @@ Button button_new_default(int x, int y, bool* selected)
     return button;
 }
 
-bool add_button(Button* button, Position* mouse, SDL_Renderer* rend, SDL_Event* event)
+bool add_button(Button* button, Position* mouse, SDL_Event* event)
 {
     assert(button != NULL);
     assert(mouse != NULL);
-    assert(rend != NULL);
     assert(event != NULL);
 
     _update_center(&button->center, &button->rect);
@@ -82,24 +111,17 @@ bool add_button(Button* button, Position* mouse, SDL_Renderer* rend, SDL_Event* 
 	}
 		
     
-    SDL_SetRenderDrawColor(rend, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(rend, &button->rect);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+    SDL_RenderFillRect(renderer, &button->rect);
 
     color = UI_DEFAULT_OUTLINE_COLOR;
-    SDL_SetRenderDrawColor(rend, color.r, color.g, color.b, color.a); 
-    SDL_RenderDrawRect(rend, &button->rect);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+    SDL_RenderDrawRect(renderer, &button->rect);
 
     return clicked_button;
 }
 
 // SLIDER METHODS ************************************************************
-
-typedef struct 
-{
-    SDL_Rect rect;
-    SDL_Rect fill;
-    Button button;
-} Slider;
 
 Slider slider_new_default(int x, int y)
 {
@@ -126,11 +148,10 @@ Slider slider_new_default(int x, int y)
     return slider;
 }
 
-bool add_slider(Slider* slider, Position* mouse, SDL_Renderer* rend, SDL_Event* event)
+bool add_slider(Slider* slider, Position* mouse, SDL_Event* event)
 {
     assert(slider != NULL);
     assert(mouse != NULL);
-    assert(rend != NULL);
     assert(event != NULL);
 
     SDL_Color color = UI_DEFAULT_BACKGROUND_COLOR;
@@ -140,26 +161,25 @@ bool add_slider(Slider* slider, Position* mouse, SDL_Renderer* rend, SDL_Event* 
 	slider->button.rect.x = slider->rect.x;
 	slider->button.rect.y = slider->fill.y; 
 	
-    SDL_SetRenderDrawColor(rend, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(rend, &slider->rect);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+    SDL_RenderFillRect(renderer, &slider->rect);
     color = UI_DEFAULT_OUTLINE_COLOR;
-    SDL_SetRenderDrawColor(rend, color.r, color.g, color.b, color.a); 
-    SDL_RenderDrawRect(rend, &slider->rect);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+    SDL_RenderDrawRect(renderer, &slider->rect);
 
     color = UI_DEFAULT_SELECTED_COLOR;
-    SDL_SetRenderDrawColor(rend, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(rend, &slider->fill);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+    SDL_RenderFillRect(renderer, &slider->fill);
 
-    return add_button(&slider->button, mouse, rend, event);
+    return add_button(&slider->button, mouse, event);
+
 }
 
 // TEXT METHODS **************************************************************
 
-bool add_text(char* text, int x, int y, TTF_Font* font, SDL_Renderer* rend)
+bool add_text(char* text, int x, int y)
 {
     assert(text != NULL);
-    assert(rend != NULL);
-	assert(font != NULL);
 
 	SDL_Rect rect = { x, y, 0, 0 };
     SDL_Color color = UI_DEFAULT_OUTLINE_COLOR;
@@ -174,7 +194,7 @@ bool add_text(char* text, int x, int y, TTF_Font* font, SDL_Renderer* rend)
 		rect.y -= rect.h/2; 
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(rend, surface);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
 
     if (texture == NULL)
@@ -183,7 +203,7 @@ bool add_text(char* text, int x, int y, TTF_Font* font, SDL_Renderer* rend)
         return false;
     }
 
-    SDL_RenderCopy(rend, texture, NULL, &rect);
+    SDL_RenderCopy(renderer, texture, NULL, &rect);
     SDL_DestroyTexture(texture);
 
     return true;
@@ -213,5 +233,3 @@ bool _over_button(SDL_Rect* rect, Position* mouse)
     }
     return false;
 }
-
-#endif // UI_TOOLS_H
