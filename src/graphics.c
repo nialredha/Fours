@@ -1,4 +1,16 @@
+#include <stdio.h>
+#include <assert.h>
+
 #include <graphics.h>
+
+#define SCREEN_WIDTH (720)
+#define SCREEN_HEIGHT (295)
+
+#define BUTTON_DEFAULT_WIDTH (24)
+#define BUTTON_DEFAULT_HEIGHT (24)
+
+#define SLIDER_DEFAULT_WIDTH (9)
+#define SLIDER_DEFAULT_HEIGHT (92)
 
 const SDL_Color UI_DEFAULT_OUTLINE_COLOR = {255, 255, 255, 255};
 const SDL_Color UI_DEFAULT_HOVER_COLOR = {74, 74, 56, 255};
@@ -148,7 +160,7 @@ Slider slider_new_default(int x, int y)
     return slider;
 }
 
-bool add_slider(Slider* slider, Position* mouse, SDL_Event* event)
+float add_slider(Slider* slider, Position* mouse, SDL_Event* event)
 {
     assert(slider != NULL);
     assert(mouse != NULL);
@@ -171,8 +183,26 @@ bool add_slider(Slider* slider, Position* mouse, SDL_Event* event)
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
     SDL_RenderFillRect(renderer, &slider->fill);
 
-    return add_button(&slider->button, mouse, event);
+    add_button(&slider->button, mouse, event);
 
+	static float percent_full = 0.0;
+	if (*slider->button.selected)
+	{
+		if (mouse->y > slider->rect.y && mouse->y < slider->rect.y + slider->rect.h)
+		{
+			float new_height = (float)((slider->rect.y + slider->rect.h) - mouse->y);
+		    percent_full = new_height / (float)slider->rect.h;
+		}
+		else if (mouse->y > slider->rect.y + slider->rect.h)
+		{
+			percent_full = 0.0;
+		}
+        else if (mouse->y < slider->rect.y)
+		{
+			percent_full = 1.0;
+		}
+	}
+	return percent_full;
 }
 
 // TEXT METHODS **************************************************************

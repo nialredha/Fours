@@ -5,9 +5,9 @@
 
 #include <audio.h>
 #include <graphics.h>
-#include <wave.h>
 
 #define NUM_TRACKS (3)
+#define NUM_PADS (48)
 #define MAX_CHARS (20)
 
 char* track_names[NUM_TRACKS] = {"Kick", "HiHat", "Snare"};
@@ -28,7 +28,7 @@ int main(int argc, char** argv)
     }
 
     // Audio Setup
-	Track16 tracks[NUM_TRACKS] = {0};;
+	WAV_Track tracks[NUM_TRACKS] = {0};;
 	for (int i = 0; i < NUM_TRACKS; i++)
 	{
 		tracks[i] = audio_load_track(track_paths[i]);
@@ -39,9 +39,10 @@ int main(int argc, char** argv)
 		}
 	}
 
-    // Button Setup
+    // UI Setup
     Button button = button_new_default(0, 0, NULL);
     Slider slider = slider_new_default(0, 0);
+
     bool play_selected = false;
     bool pad_selected[NUM_PADS] = {false};
     bool slider_selected[NUM_TRACKS] = {false};
@@ -102,7 +103,7 @@ int main(int argc, char** argv)
         button.rect.x += 68; button.selected = NULL;
         if (add_button(&button, &mouse, &event))
         {
-            bpm--;
+			if (bpm > 0) { bpm--; }
         }
         add_text("-", button.center.x, button.center.y);
 
@@ -113,7 +114,7 @@ int main(int argc, char** argv)
         button.rect.x += 34; 
         if (add_button(&button, &mouse, &event))
         {
-            bpm++;
+			if (bpm < 200) { bpm++; }
         }
         add_text("+", button.center.x, button.center.y);
 
@@ -174,26 +175,13 @@ int main(int argc, char** argv)
         for (int i = 0; i < NUM_TRACKS; i++)
         {
             slider.rect.x += slider.rect.w + 2;
-            slider.fill.h = (int)(tracks[i].volume / MAX_VOLUME * slider.rect.h);
+            slider.fill.h = (int)(tracks[i].volume * slider.rect.h);
 			slider.button.selected = &slider_selected[i];
-            add_slider(&slider, &mouse, &event);
+            float percent_full = add_slider(&slider, &mouse, &event);
 
             if (slider_selected[i])
             {
-                if (mouse.y > slider.rect.y && mouse.y < slider.rect.y + slider.rect.h)
-                {
-                    float new_height = (float)((slider.rect.y + slider.rect.h) - mouse.y);
-                    float percent_full = new_height / (float)slider.rect.h;
-                    tracks[i].volume = percent_full * MAX_VOLUME;
-                }
-                else if (mouse.y > slider.rect.y + slider.rect.h)
-                {
-                    tracks[i].volume = 0.0;
-                }
-                else if (mouse.y < slider.rect.y)
-                {
-                    tracks[i].volume = MAX_VOLUME;
-                }
+				tracks[i].volume = percent_full;
             }
         }
 
@@ -225,8 +213,7 @@ int main(int argc, char** argv)
 
     // Clean Up
 	audio_close();
-	// TODO: make this more user friendly
-	for (int i = 0; i < NUM_TRACKS; i++) { SDL_FreeWAV((Uint8*)tracks[i].buffer); }
+	for (int i = 0; i < NUM_TRACKS; i++) { audio_delete_track(&tracks[i]); }
 
 	graphics_close();
 
