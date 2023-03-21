@@ -2,7 +2,7 @@
 
 a <u>s</u>imple <u>s</u>ixteen <u>s</u>tep <u>s</u>equencer offering 4/4 time
 
-![Fours](./assets/Fours.png)
+![Fours](https://github.com/nialredha/Fours/blob/main/assets/Fours.PNG)
 
 ## Build in Windows
 
