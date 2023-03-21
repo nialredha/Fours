@@ -31,7 +31,6 @@ void graphics_clear_screen(SDL_Color color);
 void graphics_display();
 void graphics_close();
 
-// TODO: make these more user minded and mayble a little less limited?
 Button button_new_default(int x, int y, bool* selected);
 bool add_button(Button* button, Position* mouse, SDL_Event* event);
 

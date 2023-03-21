@@ -3,8 +3,8 @@
 
 #include <SDL.h>
 
-#include <audio.h>
-#include <graphics.h>
+#include "audio.h"
+#include "graphics.h"
 
 #define NUM_TRACKS (3)
 #define NUM_PADS (48)
@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 		if (tracks[i].buffer == NULL)
 		{
 			fprintf(stderr, "ERROR in %s, line %d: failed to load %s.\n", __FILE__, __LINE__, track_paths[i]);
-        	exit(1); 
+			exit(1); 
 		}
 	}
 
@@ -160,7 +160,8 @@ int main(int argc, char** argv)
 			add_button(&button, &mouse, &event);
 			button.rect.x += button.rect.w + 10;
 
-			// add track titles and move to next track
+			// once a single row of pads are drawn,
+			// add track title and move to next track
 			if ((i+1) % NUM_STEPS == 0)
 			{
 				button.rect.x = 93;

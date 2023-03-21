@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <SDL.h>
 
-// TODO: See todo in audio.c fill_mix(). Then remove this.
+// TODO: remove this and its dependencies
 #define NUM_STEPS (16)
 
 typedef struct 
@@ -20,6 +20,7 @@ void audio_callback(void* userdata, Uint8* stream, int length);
 bool audio_init();
 
 WAV_Track audio_load_track(char* path);
+
 void audio_delete_track(WAV_Track* track);
 
 void audio_fill_mix(WAV_Track* track, int* bpm, bool* sequence);

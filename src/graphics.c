@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <graphics.h>
+#include "graphics.h"
 
 #define SCREEN_WIDTH (720)
 #define SCREEN_HEIGHT (295)

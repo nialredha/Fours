@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <audio.h>
-#include <wave.h>
+#include "audio.h"
+#include "wave.h"
 
 typedef struct
 {
@@ -93,7 +93,7 @@ void audio_delete_track(WAV_Track* track)
 	SDL_FreeWAV((Uint8*)track->buffer); 
 }
 
-// TODO: generalize this for a sequencer and make another function that simply
+// TODO: generalize this for a sequencer and add another function that simply
 // fills the mix with a track. I wonder how API would look for filling mix at
 // a certain position would look like?
 void audio_fill_mix(WAV_Track* track, int* bpm, bool* sequence)
@@ -113,7 +113,7 @@ void audio_fill_mix(WAV_Track* track, int* bpm, bool* sequence)
     {
         if (mix.buffer != NULL) { free(mix.buffer); }
 
-		// TODO: generalize
+		// TODO: generalize for different time signatures
         seconds_per_beat = (1 / ((float)*bpm / 60)) / 4;
         samples_per_beat = (int)ceil(seconds_per_beat * mix.spec.freq);
         mix.length = samples_per_beat * NUM_STEPS; 
