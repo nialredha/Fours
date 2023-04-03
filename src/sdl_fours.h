@@ -1,5 +1,5 @@
-#ifndef GRAPHICS_H
-#define GRAPHICS_H
+#ifndef SDL_FOURS_H
+#define SDL_FOURS_H
 
 #include <stdbool.h>
 
@@ -26,17 +26,25 @@ typedef struct
 	bool* drag;
 } Slider;
 
+// SDL Graphics
 bool graphics_init();
 void graphics_clear_screen(SDL_Color color);
 void graphics_display();
 void graphics_close();
 
+// UI
 Button button_new_default(int x, int y, bool* selected);
-bool add_button(Button* button, Position* mouse, SDL_Event* event);
+bool add_button(Button* button);
 
 Slider slider_new_default(int x, int y);
-float add_slider(Slider* slider, Position* mouse, SDL_Event* event);
+float add_slider(Slider* slider);
 
 bool add_text(char* text, int x, int y);
 
-#endif // GRAPHICS_H
+// SDL Audio
+void audio_callback(void* userdata, Uint8* stream, int length);
+bool audio_init();
+void audio_toggle();
+void audio_close();
+
+#endif // SDL_FOURS_H 

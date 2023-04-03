@@ -7,8 +7,9 @@
 	- http://kernelx.weebly.com/bitwise-operators-in-c.html
 */
 
-#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 #include <assert.h>
 
 #define BUFFER_SIZE (4)
@@ -37,7 +38,8 @@ typedef struct
 	int16_t* data_buffer;
 } Wave;
 
-Wave wave_new(char* path, uint16_t num_channels, uint32_t sample_rate, uint32_t num_samples, int16_t* buffer)
+Wave wave_construct(char* path, uint16_t num_channels, uint32_t sample_rate, 
+					uint32_t num_samples, int16_t* buffer)
 {
     Wave wave;
 
@@ -133,85 +135,100 @@ bool wave_load(Wave* wave)
 
 	// FMT Sub-Chunk **********************************************************
 
-	// Sub-Chunk-1 ID (big endian)
-	fread(buffer, 1, 4, wave->fp);
-	if (buffer[0] != 'f' || buffer[1] != 'm' || buffer[2] != 't')
+	while (true)
 	{
-        fprintf(stderr, "ERROR in %s, line %d: Can't find the 'fmt' sub-chunk...\n", __FILE__, __LINE__);
-		return false;
+		// Sub-Chunk-1 ID (big endian)
+		fread(buffer, 1, 4, wave->fp);
+		if (buffer[0] == 'f' || buffer[1] == 'm' || buffer[2] == 't')
+		{
+			// Sub-Chunk-1 Size (little endian)
+			fread(buffer, 1, 4, wave->fp);
+
+			wave->fmt_chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+
+			// Audio Format and Number of Channels (little endian)
+			fread(buffer, 1, 4, wave->fp);
+
+			wave->audio_format = buffer[1] << 8 | buffer[0] << 0; // expecting 1 a.k.a PCM
+			wave->num_channels = buffer[3] << 8 | buffer[2] << 0;
+
+			if(wave->audio_format != 1)
+			{ 
+    		    fprintf(stderr, "ERROR in %s, line %d: %s format is not PCM!\n", __FILE__, __LINE__, wave->path);
+				return false;
+			}
+
+			// Sample Rate (little endian)
+			fread(buffer, 1, 4, wave->fp);
+
+			wave->sample_rate = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+
+			// Byte Rate (little endian) = sample_rate * num_channels * bytes_per_sample
+			fread(buffer, 1, 4, wave->fp);
+			wave->byte_rate = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+
+			// Block Align (num_channels * bytes_per_sample) and Bits Per Sample (little endian)
+			fread(buffer, 1, 4, wave->fp);
+
+			wave->block_align = buffer[1] << 8 | buffer[0] << 0;
+			wave->bits_per_sample = buffer[3] << 8 | buffer[2] << 0;
+
+			wave->bytes_per_sample = wave->bits_per_sample / BITS_PER_BYTE;
+
+			break;
+		}
+
+		// skip over random sub-chunk in hopes of finding the fmt sub-chunk
+		fread(buffer, 1, 4, wave->fp);
+		uint32_t chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+		if (fseek(wave->fp, chunk_size, SEEK_CUR))
+		{
+    	    fprintf(stderr, "ERROR in %s, line %d: Can't find the 'fmt' sub-chunk...\n", __FILE__, __LINE__);
+			return false;
+		}
 	}
 
-	// Sub-Chunk-1 Size (little endian)
-	fread(buffer, 1, 4, wave->fp);
-
-	wave->fmt_chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
-
-	// Audio Format and Number of Channels (little endian)
-	fread(buffer, 1, 4, wave->fp);
-
-	wave->audio_format = buffer[1] << 8 | buffer[0] << 0; // expecting 1 a.k.a PCM
-	wave->num_channels = buffer[3] << 8 | buffer[2] << 0;
-
-	if(wave->audio_format != 1)
-	{ 
-        fprintf(stderr, "ERROR in %s, line %d: %s format is not PCM!\n", __FILE__, __LINE__, wave->path);
-		return false;
-	}
-
-	// Sample Rate (little endian)
-	fread(buffer, 1, 4, wave->fp);
-
-	wave->sample_rate = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
-
-	// Byte Rate (little endian) = sample_rate * num_channels * bytes_per_sample
-	fread(buffer, 1, 4, wave->fp);
-	wave->byte_rate = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
-
-	// Block Align (num_channels * bytes_per_sample) and Bits Per Sample (little endian)
-	fread(buffer, 1, 4, wave->fp);
-
-	wave->block_align = buffer[1] << 8 | buffer[0] << 0;
-	wave->bits_per_sample = buffer[3] << 8 | buffer[2] << 0;
-
-	wave->bytes_per_sample = wave->bits_per_sample / BITS_PER_BYTE;
 
 	// Data Sub-Chunk *********************************************************
 
-	// Sub-Chunk-2 ID (big endian)
-	fread(buffer, 1, 4, wave->fp);
-	if (buffer[0] != 'd' || buffer[1] != 'a' || buffer[2] != 't' || buffer[3] != 'a')
+	while(1)
 	{
-        fprintf(stderr, "ERROR in %s, line %d: Can't find the 'data' sub-chunk...\n", __FILE__, __LINE__);
-		return false;
+		// Sub-Chunk-2 ID (big endian)
+		fread(buffer, 1, 4, wave->fp);
+		if (buffer[0] == 'd' || buffer[1] == 'a' || buffer[2] == 't' || buffer[3] == 'a')
+		{
+			// Sub-Chunk-2 Size (little endian)
+			fread(buffer, 1, 4, wave->fp);
+
+			wave->data_chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+
+			// Data
+			wave->num_samples = wave->data_chunk_size / (wave->num_channels * wave->bytes_per_sample);
+			wave->duration_sec = wave->num_samples / wave->sample_rate;
+
+			wave->data_buffer = (int16_t*)malloc(sizeof(int16_t) * wave->num_samples);
+			if (wave->data_buffer == NULL) 
+			{ 
+    		    fprintf(stderr, "ERROR in %s, line %d: Couldn't allocate memory...\n", __FILE__, __LINE__);
+				return false;
+			} 
+
+			fread(wave->data_buffer, wave->bytes_per_sample, wave->num_samples, wave->fp);
+
+			break;
+		}
+
+		// skip over random sub-chunk in hopes of finding the data sub-chunk
+		fread(buffer, 1, 4, wave->fp);
+		uint32_t chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+		if (fseek(wave->fp, chunk_size, SEEK_CUR))
+		{
+    	    fprintf(stderr, "ERROR in %s, line %d: Can't find the 'data' sub-chunk...\n", __FILE__, __LINE__);
+			return false;
+		}
 	}
 
-	// Sub-Chunk-2 Size (little endian)
-	fread(buffer, 1, 4, wave->fp);
-
-	wave->data_chunk_size = buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
-
-	if(wave->data_chunk_size != wave->chunk_size - 36) 
-	{ 
-        fprintf(stderr, "ERROR in %s, line %d: Things aren't looking right...\n", __FILE__, __LINE__);
-        fprintf(stderr, "chunk size = %d, data chunk size = %d\n", wave->chunk_size, wave->data_chunk_size);
-		// return false;
-	} 
-
-	// Data
-	wave->num_samples = wave->data_chunk_size / (wave->num_channels * wave->bytes_per_sample);
-	wave->duration_sec = wave->num_samples / wave->sample_rate;
-
-	wave->data_buffer = (int16_t*)malloc(sizeof(int16_t) * wave->num_samples);
-	if (wave->data_buffer == NULL) 
-	{ 
-        fprintf(stderr, "ERROR in %s, line %d: Couldn't allocate memory for data...\n", __FILE__, __LINE__);
-		return false;
-	} 
-
-	fread(wave->data_buffer, wave->bytes_per_sample, wave->num_samples, wave->fp);
-
 	fclose(wave->fp);
-
     return true;
 }
 
