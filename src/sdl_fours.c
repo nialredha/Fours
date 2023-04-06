@@ -1,17 +1,14 @@
+#include "fours.c"
+
 #include <stdio.h>
 #include <assert.h>
 
-// TODO: include fours.c NOT fours.h
-#include "fours.h"
+#include <SDL.h>
+#include <SDL_ttf.h>
+#include <stdbool.h>
 
 #define SCREEN_WIDTH (720)
 #define SCREEN_HEIGHT (295)
-
-#define BUTTON_DEFAULT_WIDTH (24)
-#define BUTTON_DEFAULT_HEIGHT (24)
-
-#define SLIDER_DEFAULT_WIDTH (9)
-#define SLIDER_DEFAULT_HEIGHT (92)
 
 // GLOBAL VARIABLES
 const SDL_Color UI_DEFAULT_OUTLINE_COLOR = {255, 255, 255, 255};
@@ -26,91 +23,52 @@ TTF_Font* font = NULL;
 SDL_Event event;
 Fours_State state;
 
-// Private methods 
-void _update_center(Position* center, SDL_Rect* rect);
-bool _over_button(SDL_Rect* rect);
-
-bool graphics_init()
+typedef struct
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    SDL_AudioSpec spec;
+    SDL_AudioDeviceID device_id;
+} SDL_Audio;
+
+SDL_Audio audio_out = {0};
+
+void update_center(Position* center, SDL_Rect* rect)
+{
+    assert(rect != NULL);
+
+	center->x = rect->x + (rect->w / 2);
+	center->y = rect->y + (rect->h / 2);
+}
+
+bool over_button(SDL_Rect* rect)
+{
+    assert(rect != NULL);
+
+    if (state.mouse.x > rect->x && state.mouse.x < rect->x + rect->w)
     {
-        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
-        return false;
+        if (state.mouse.y > rect->y && state.mouse.y < rect->y + rect->h) 
+        { 
+            return true; 
+        }
     }
-    if (SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, 
-                                    &window, &renderer) < 0)
-    {
-        fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
-        return false;
-    }
-    if (TTF_Init() < 0)
-    {
-        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
-        return false;
-    }
-
-    font = TTF_OpenFont("../assets/Roboto-Regular.ttf", 16);
-	if (!font)
-	{
-        fprintf(stderr, "TTF_OpenFont Error: %s\n", TTF_GetError());
-		return false;
-	}
-
-    SDL_ShowCursor(SDL_ENABLE);
-
-    return true;
-}
-
-void graphics_clear_screen(SDL_Color color)
-{
-	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-	SDL_RenderClear(renderer);
-}
-
-void graphics_display()
-{
-	SDL_RenderPresent(renderer);
-}
-
-void graphics_close()
-{
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
-    TTF_CloseFont(font);
-    TTF_Quit();
-}
-
-// BUTTON DATA/METHODS *******************************************************
-
-Button button_new_default(int x, int y, bool* selected)
-{
-    Button button;
-
-    button.rect.x = x;
-    button.rect.y = y;
-
-    button.rect.w = BUTTON_DEFAULT_WIDTH;
-    button.rect.h = BUTTON_DEFAULT_HEIGHT;
-
-    _update_center(&button.center, &button.rect); 
-
-    button.selected = selected;
-
-    return button;
+    return false;
 }
 
 bool add_button(Button* button)
 {
     assert(button != NULL);
 
-    _update_center(&button->center, &button->rect);
+	SDL_Rect rect = {0};
+	rect.w = button->width; 
+	rect.h = button->height; 
+	rect.x = button->origin.x;
+	rect.y = button->origin.y;
+
+    update_center(&button->center, &rect);
 
     SDL_Color color = UI_DEFAULT_BACKGROUND_COLOR;
     bool clicked_button = false;
 
-    if (_over_button(&button->rect))
+    if (over_button(&rect))
     {
         color = UI_DEFAULT_HOVER_COLOR;
 
@@ -127,40 +85,13 @@ bool add_button(Button* button)
 		
     
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(renderer, &button->rect);
+    SDL_RenderFillRect(renderer, &rect);
 
     color = UI_DEFAULT_OUTLINE_COLOR;
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-    SDL_RenderDrawRect(renderer, &button->rect);
+    SDL_RenderDrawRect(renderer, &rect);
 
     return clicked_button;
-}
-
-// SLIDER METHODS ************************************************************
-
-Slider slider_new_default(int x, int y)
-{
-    Slider slider;
-
-    slider.rect.x = x;
-    slider.rect.y = y;
-    slider.rect.w = SLIDER_DEFAULT_WIDTH; 
-    slider.rect.h = SLIDER_DEFAULT_HEIGHT; 
-
-    slider.fill.x = x;
-    slider.fill.y = y;
-    slider.fill.w = SLIDER_DEFAULT_WIDTH; 
-    slider.fill.h = SLIDER_DEFAULT_HEIGHT; 
-
-    Button button = button_new_default(x, y, NULL);
-	button.rect.x = x;
-	button.rect.y = y;
-    button.rect.w = slider.rect.w;
-    button.rect.h = slider.rect.w;
-
-    slider.button = button;
-
-    return slider;
 }
 
 float add_slider(Slider* slider)
@@ -169,44 +100,52 @@ float add_slider(Slider* slider)
 
     SDL_Color color = UI_DEFAULT_BACKGROUND_COLOR;
 
-	slider->fill.x = slider->rect.x; 
-	slider->fill.y = slider->rect.y + slider->rect.h - slider->fill.h; 
-	slider->button.rect.x = slider->rect.x;
-	slider->button.rect.y = slider->fill.y; 
+	SDL_Rect fill = {0};
+	fill.x = slider->origin.x; 
+	fill.y = slider->origin.y + slider->fill_height; 
+	fill.w = slider->width;
+	fill.h = slider->fill_height;
+
+	slider->button.origin.x = slider->origin.x;
+	slider->button.origin.y = fill.y; 
+
+	SDL_Rect slider_box = {0};
+	slider_box.x = slider->origin.x;
+	slider_box.y = slider->origin.y;
+	slider_box.w = slider->width;
+	slider_box.h = slider->height;
 	
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(renderer, &slider->rect);
+    SDL_RenderFillRect(renderer, &slider_box);
     color = UI_DEFAULT_OUTLINE_COLOR;
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-    SDL_RenderDrawRect(renderer, &slider->rect);
+    SDL_RenderDrawRect(renderer, &slider_box);
 
     color = UI_DEFAULT_SELECTED_COLOR;
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
-    SDL_RenderFillRect(renderer, &slider->fill);
+    SDL_RenderFillRect(renderer, &fill);
 
     add_button(&slider->button);
 
 	static float percent_full = 0.0;
 	if (*slider->button.selected)
 	{
-		if (state.mouse.y > slider->rect.y && state.mouse.y < slider->rect.y + slider->rect.h)
+		if (state.mouse.y > slider->origin.y && state.mouse.y < slider->origin.y + slider->height)
 		{
-			float new_height = (float)((slider->rect.y + slider->rect.h) - state.mouse.y);
-		    percent_full = new_height / (float)slider->rect.h;
+			float new_height = (float)((slider->origin.y + slider->height) - state.mouse.y);
+		    percent_full = new_height / (float)slider->height;
 		}
-		else if (state.mouse.y > slider->rect.y + slider->rect.h)
+		else if (state.mouse.y > slider->origin.y + slider->height)
 		{
 			percent_full = 0.0;
 		}
-        else if (state.mouse.y < slider->rect.y)
+        else if (state.mouse.y < slider->origin.y)
 		{
 			percent_full = 1.0;
 		}
 	}
 	return percent_full;
 }
-
-// TEXT METHODS **************************************************************
 
 bool add_text(char* text, int x, int y)
 {
@@ -240,37 +179,16 @@ bool add_text(char* text, int x, int y)
     return true;
 }
 
-// PRIVATE METHODS ***********************************************************
-
-void _update_center(Position* center, SDL_Rect* rect)
+void toggle_audio()
 {
-    assert(rect != NULL);
+    if (state.play_selected) { SDL_PauseAudioDevice(audio_out.device_id, 0); }
 
-	center->x = rect->x + (rect->w / 2);
-	center->y = rect->y + (rect->h / 2);
+    else 
+	{ 
+		SDL_PauseAudioDevice(audio_out.device_id, 1); 
+		state.readhead = 0;
+	}
 }
-
-bool _over_button(SDL_Rect* rect)
-{
-    assert(rect != NULL);
-
-    if (state.mouse.x > rect->x && state.mouse.x < rect->x + rect->w)
-    {
-        if (state.mouse.y > rect->y && state.mouse.y < rect->y + rect->h) 
-        { 
-            return true; 
-        }
-    }
-    return false;
-}
-
-typedef struct
-{
-    SDL_AudioSpec spec;
-    SDL_AudioDeviceID device_id;
-} SDL_Audio;
-
-SDL_Audio audio_out = {0};
 
 void audio_callback(void* userdata, Uint8* stream, int length)
 {
@@ -287,18 +205,16 @@ void audio_callback(void* userdata, Uint8* stream, int length)
     // fill buffer with mixed audio
     for (int i = 0; i < length16; i++)
     {
-        if (state.mix.playhead >= state.mix.length) 
+        if (state.readhead >= state.audio_length) 
         { 
-            state.mix.playhead = 0; 
+            state.readhead = 0; 
         }
-        stream16[i] = (int16_t)state.mix.buffer[state.mix.playhead];
-        state.mix.playhead += 1;
-
-		// stream16[i] = (int16_t)(5000 * sin(2.0 * M_PI * 800.0 * (float)i / 44100.0));
+        stream16[i] = (int16_t)state.audio_buffer[state.readhead];
+        state.readhead += 1;
     }
 }
 
-bool audio_init()
+bool init_audio()
 {
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
 	{
@@ -325,22 +241,59 @@ bool audio_init()
     return true;
 }
 
-void audio_toggle()
-{
-    if (state.play_selected) { SDL_PauseAudioDevice(audio_out.device_id, 0); }
-
-    else 
-	{ 
-		SDL_PauseAudioDevice(audio_out.device_id, 1); 
-		state.mix.playhead = 0;
-	}
-}
-
-void audio_close()
+void close_audio()
 {
     SDL_CloseAudioDevice(audio_out.device_id);
-    free(state.mix.buffer);
+    free(state.audio_buffer);
 }
+
+bool init_graphics()
+{
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+        return false;
+    }
+    if (SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, 
+                                    &window, &renderer) < 0)
+    {
+        fprintf(stderr, "SDL_CreateWindowAndRenderer Error: %s\n", SDL_GetError());
+        return false;
+    }
+    if (TTF_Init() < 0)
+    {
+        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
+        return false;
+    }
+
+    font = TTF_OpenFont("../assets/Roboto-Regular.ttf", 16);
+	if (!font)
+	{
+        fprintf(stderr, "TTF_OpenFont Error: %s\n", TTF_GetError());
+		return false;
+	}
+
+    SDL_ShowCursor(SDL_ENABLE);
+
+    return true;
+}
+
+void clear_screen(SDL_Color color)
+{
+	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a); 
+	SDL_RenderClear(renderer);
+}
+
+void close_graphics()
+{
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    TTF_CloseFont(font);
+    TTF_Quit();
+}
+
 
 int main(int argc, char** argv)
 {
@@ -350,7 +303,7 @@ int main(int argc, char** argv)
     }
 
     // SDL Audio Visual Initialization
-    if (!graphics_init() | !audio_init()) 
+    if (!init_graphics() | !init_audio()) 
     { 
         fprintf(stderr, "ERROR in %s, line %d: failed to initialize.\n", __FILE__, __LINE__);
         exit(1); 
@@ -378,7 +331,7 @@ int main(int argc, char** argv)
             if (event.key.keysym.sym == SDLK_SPACE) 
             { 
                 state.play_selected = !state.play_selected; 
-                audio_toggle();
+                toggle_audio();
             }
         }
         else if (event.type == SDL_MOUSEBUTTONUP)
@@ -394,13 +347,13 @@ int main(int argc, char** argv)
 
         // Clear screen to gray
 		SDL_Color color = {30, 30, 30, 255};
-		graphics_clear_screen(color);
+		clear_screen(color);
 
 		// Render Frame
 		fours_render_graphics(&state); 
 
 		// Present Frame
-		graphics_display();
+		SDL_RenderPresent(renderer);
 
 		SDL_LockAudioDevice(audio_out.device_id);
 		fours_render_audio(&state);
@@ -408,9 +361,10 @@ int main(int argc, char** argv)
 	}
 
 	// Clean Up
-	audio_close();
+	close_audio();
+	close_graphics();
+
 	fours_close();
-	graphics_close();
 
 	return 0;
 }
