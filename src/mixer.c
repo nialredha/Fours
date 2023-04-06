@@ -21,7 +21,11 @@ void fill_mix(Track* track, Mix* mix, int writehead)
 
 	for (int n = 0; n < track->length; n++)
 	{
-		if (writehead >= mix->length) { break; }
+		if (writehead >= mix->length) 
+		{ 
+			writehead = 0;
+			// break; 
+		}
 		float sample = (float)track->buffer[n] * track->volume;
 		mix->buffer[writehead] += sample;
 		writehead++;
@@ -38,6 +42,30 @@ bool export_mix(Mix* mix)
 
     Wave wave = wave_construct(mix->metadata.path, mix->metadata.channels, 
 								mix->metadata.sample_freq, samples, buffer);
+    if (!wave_write(&wave)) { return false; }
+
+    wave.data_buffer = NULL;
+
+    return true;
+}
+
+bool export_mix_loop(Mix* mix, int bars)
+{
+	assert(mix != NULL);
+
+	uint32_t samples = mix->length * bars;
+	int16_t* looped_mix = (int16_t*)malloc(sizeof(int16_t) * samples);
+
+	for (int b = 0; b < bars; b++)
+	{
+		for (int n = 0; n < mix->length; n++)
+		{
+			looped_mix[n + (b * mix->length)] = (int16_t)mix->buffer[n];
+		}
+	}
+
+    Wave wave = wave_construct(mix->metadata.path, mix->metadata.channels, 
+								mix->metadata.sample_freq, samples, looped_mix);
     if (!wave_write(&wave)) { return false; }
 
     wave.data_buffer = NULL;

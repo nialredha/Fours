@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
+
 #include "fours.h"
+// TODO: include mixer.c here
 
 #define NUM_STEPS (16)
 #define MAX_CHARS (20)
@@ -71,6 +73,10 @@ bool fours_init(Fours_State* state)
 	}
 	state->prev_bpm = 0;
 	state->bpm = 60;
+	state->bars = 16;
+	state->samples_per_beat = 0;
+
+	state->num_saves = 0;
 
 	return true;
 }
@@ -86,8 +92,7 @@ void fours_render_graphics(Fours_State* state)
 	add_text("Play", button.center.x, 40);
 	
 	// BPM Variables
-	// TODO: move into Fours State
-	static char bpm_str[MAX_CHARS];
+	char bpm_str[MAX_CHARS];
 	
 	// BPM Decrement Button
 	button.rect.x += 68; button.selected = NULL;
@@ -113,15 +118,13 @@ void fours_render_graphics(Fours_State* state)
 	add_text(bpm_str, button.center.x, 40);
 	
 	// Bars Variables
-	// TODO: add to Fours_State
-	static int bars = 16;
-	static char bars_str[MAX_CHARS];
+	char bars_str[MAX_CHARS];
 	
 	// Bars Decrement Button
 	button.rect.x += 68; 
 	if (add_button(&button))
 	{
-	    if (bars > 0) { bars--; }
+	    if (state->bars > 0) { state->bars--; }
 	}
 	add_text("-", button.center.x, button.center.y);
 	
@@ -132,12 +135,12 @@ void fours_render_graphics(Fours_State* state)
 	button.rect.x += 34; 
 	if (add_button(&button))
 	{
-	    if (bars < 16) { bars++; }
+	    if (state->bars < 16) { state->bars++; }
 	}
 	add_text("+", button.center.x, button.center.y);
 	
 	// Bars Display Value
-	snprintf(bars_str, MAX_CHARS, "%d", bars);
+	snprintf(bars_str, MAX_CHARS, "%d", state->bars);
 	add_text(bars_str, button.center.x, 40);
 	
 	// Instrument Pads
@@ -181,11 +184,13 @@ void fours_render_graphics(Fours_State* state)
 	button.rect.x = 603; button.rect.y = 215; button.selected = NULL;
 	if (add_button(&button))
 	{
-		// TODO: remove or move into Fours State
-		static int track_num = 1;
+		state->num_saves++;
 		char file_name[MAX_CHARS];
-		snprintf(file_name, MAX_CHARS, "%s%d%s", "track-", track_num, ".wav");
+		snprintf(file_name, MAX_CHARS, "%s%d%s", "track-", state->num_saves, ".wav");
 		// TODO: actually export the audio
+		state->mix.metadata.path = file_name; 
+		export_mix_loop(&state->mix, state->bars);
+
 	}
 	add_text("Save", 573, button.center.y);
 
@@ -194,13 +199,11 @@ void fours_render_graphics(Fours_State* state)
 
 void fours_render_audio(Fours_State* state)
 {
-	// TODO: move this into Fours State
-	static int samples_per_beat = 0;
 	if (state->prev_bpm != state->bpm)
 	{
 		float seconds_per_beat = (1 / ((float)state->bpm / 60)) / 4;
-        samples_per_beat = (int)ceil(seconds_per_beat * state->mix.metadata.sample_freq);
-        state->mix.length = samples_per_beat * NUM_STEPS; 
+        state->samples_per_beat = (int)ceil(seconds_per_beat * state->mix.metadata.sample_freq);
+        state->mix.length = state->samples_per_beat * NUM_STEPS; 
         state->mix.playhead = 0;
         state->prev_bpm = state->bpm;
 	}
@@ -211,7 +214,7 @@ void fours_render_audio(Fours_State* state)
 	{
 		for (int step = 0; step < NUM_STEPS; step++)
 		{
-			int writehead = samples_per_beat * step;
+			int writehead = state->samples_per_beat * step;
 			if (state->pad_selected[s * NUM_STEPS + step])
 			{
 				fill_mix(&tracks[s], &state->mix, writehead);

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// TODO: move all of this to the mixer.c file.
 typedef struct
 {
 	char* path;	
@@ -13,7 +14,7 @@ typedef struct
 
 typedef struct
 {
-    float* buffer;
+    float* buffer; // TODO: update msvc to use Atomics 
     int length;
 
 	// TODO: change to read head
@@ -45,6 +46,7 @@ typedef struct
 void clear_mix(Mix* mix);
 void fill_mix(Track* track, Mix* mix, int writehead);
 bool export_mix(Mix* mix);
+bool export_mix_loop(Mix* mix, int bars);
 
 bool load_sample(Sample* sample);
 

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+// TODO: include fours.c NOT fours.h
 #include "fours.h"
-#include "mixer.h"
 
 #define SCREEN_WIDTH (720)
 #define SCREEN_HEIGHT (295)
@@ -356,7 +356,11 @@ int main(int argc, char** argv)
         exit(1); 
     }
 
-	fours_init(&state);
+	if (!fours_init(&state))
+	{
+        fprintf(stderr, "ERROR in %s, line %d: failed to initialize.\n", __FILE__, __LINE__);
+        exit(1); 
+	}
 
     // Main Loop
     bool quit = false;

@@ -6,8 +6,8 @@ set SDL_AUDIODRIVER=dsound
 if not exist "build\" mkdir build\
 cd build/
 
-:: set FLAGS=/EHsc
-set FLAGS=/W4 /WX /std:c11 /wd4996 /wd5105 /FC /TC /Zi /nologo
+:: set FLAGS=/EHsc /std:c11 
+set FLAGS=/W4 /WX /wd4996 /wd5105 /FC /TC /Zi /nologo /std:c11
 set INCLUDES=/I ..\src /I C:\SDL2\include 
 set SRC_FILES=..\src\fours.c ..\src\sdl_fours.c ..\src\mixer.c
 set SDL_PATH=C:\SDL2\lib\x64\
